@@ -40,12 +40,12 @@ class Base_Transformer(BaseEstimator, TransformerMixin):
 
 class DecisionTreeClassifier_Personalized(DecisionTreeClassifier):
     def __init__(self):
-        self.isalgorithm = True
+        self.is_algorithm = True
         super().__init__()
 
 class RandomForestClassifier_Personalized(RandomForestClassifier):
     def __init__(self):
-        self.isalgorithm = True
+        self.is_algorithm = True
         super().__init__()
 
 
@@ -74,18 +74,18 @@ class Evaluation_Algorithms():
         combinations=[
             (Base_Transformer, StandardScaler),
             (Base_Transformer, PCA),
-            (DecisionTreeClassifier, RandomForestClassifier),
+            (DecisionTreeClassifier_Personalized, RandomForestClassifier_Personalized),
         ]
         self.calculated_combinations = list(itertools.product(*combinations))
 
     def get_preprocessing_algorithm_objects(self, pipeline):
         class_objects = [pipeline_class() for pipeline_class in pipeline]
-        preprocessing_objects = [class_object for class_object in class_objects if not hasattr(class_object, 'is_algorithm')]
         algorithm_object = [class_object for class_object in class_objects if hasattr(class_object, 'is_algorithm')]
-        return preprocessing_objects, algorithm_object  
+        preprocessing_objects = [class_object for class_object in class_objects if not hasattr(class_object, 'is_algorithm')]
+        return preprocessing_objects, *algorithm_object  
 
     def perform_preprocessing(self, preprocessing_objects, X, y):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify='y')
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
         preprocessing_pipelines = make_pipeline(*preprocessing_objects)
         X_train_preprocessed = preprocessing_pipelines.fit_transform(X_train)
         X_test_preprocessed = preprocessing_pipelines.transform(X_test)
@@ -93,7 +93,7 @@ class Evaluation_Algorithms():
 
     def calculate_scores(self, y_test, y_pred):
         if self.machinelearning_task == 'classification':
-            accuracy = accuracy_score(y_test, y_pred, average='macro', zero_division=0)
+            accuracy = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
             precision = precision_score(y_test, y_pred, average='macro', zero_division=0)
             recall = recall_score(y_test, y_pred, average='macro', zero_division=0)
@@ -106,20 +106,20 @@ class Evaluation_Algorithms():
             self.machinelearning_metrics = [mse, mae, max_e, r2]
 
     def evaluate_algorithm(self, algorithm, X_train, X_test, y_train, y_test):
-        algorithm_model = algorithm()
+        algorithm_model = algorithm
         algorithm_model.fit(X_train, y_train)
         y_pred = algorithm_model.predict(X_test)
-        self.calculate_scores()
+        self.calculate_scores(y_test, y_pred)
 
     def run(self):
         
         X_evaluation, y_evaluation = self.get_dataset()
         self.calculate_combinations_for_evaluation()
         for combination in self.calculated_combinations:
-            preprocessing_objects, algorithm_object = self.get_preprocessing_objects(combination)
+            preprocessing_objects, algorithm_object = self.get_preprocessing_algorithm_objects(combination)
             X_train, X_test, y_train, y_test = self.perform_preprocessing(preprocessing_objects, X_evaluation, y_evaluation)
-                    
-        print(self.calculated_combinations)
+            self.evaluate_algorithm(algorithm_object, X_train, X_test, y_train, y_test)
+            print(self.machinelearning_metrics)
 
 if __name__ == '__main__':
 
