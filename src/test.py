@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import os
 import itertools
+import datetime
+
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from sklearn.model_selection import train_test_split
@@ -50,13 +52,12 @@ class RandomForestClassifier_Personalized(RandomForestClassifier):
 
 
 class Evaluation_Algorithms():
-    # def __init__(self, result_folder, dataset):
-    def __init__(self, dataset):
-        # self.result_folder = result_folder
-        self.name = dataset.name
+    def __init__(self, result_folder, dataset):
+        self.result_folder = result_folder
+        self.dataset_name = dataset.name
         self.dataset_path = dataset.dataset_path
-        self.machinelearning_task = dataset.machinelearning_task
-        assert self.machinelearning_task in ['classification', 'regression']
+        self.dataset_machinelearning_task = dataset.machinelearning_task
+        assert self.dataset_machinelearning_task in ['classification', 'regression']
         self.calculated_combinations = None
         self.machinelearning_metrics = None
 
@@ -82,7 +83,7 @@ class Evaluation_Algorithms():
         class_objects = [pipeline_class() for pipeline_class in pipeline]
         algorithm_object = [class_object for class_object in class_objects if hasattr(class_object, 'is_algorithm')]
         preprocessing_objects = [class_object for class_object in class_objects if not hasattr(class_object, 'is_algorithm')]
-        return preprocessing_objects, *algorithm_object  
+        return preprocessing_objects, *algorithm_object
 
     def perform_preprocessing(self, preprocessing_objects, X, y):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
@@ -92,13 +93,13 @@ class Evaluation_Algorithms():
         return X_train_preprocessed, X_test_preprocessed, y_train, y_test
 
     def calculate_scores(self, y_test, y_pred):
-        if self.machinelearning_task == 'classification':
+        if self.dataset_machinelearning_task == 'classification':
             accuracy = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
             precision = precision_score(y_test, y_pred, average='macro', zero_division=0)
             recall = recall_score(y_test, y_pred, average='macro', zero_division=0)
             self.machinelearning_metrics = [accuracy, f1, precision, recall]
-        if self.machinelearning_task == 'regression':
+        if self.dataset_machinelearning_task == 'regression':
             mse = mean_squared_error(y_test, y_pred)
             mae = mean_absolute_error(y_test, y_pred)
             max_e = max_error(y_test, y_pred)
@@ -111,6 +112,12 @@ class Evaluation_Algorithms():
         y_pred = algorithm_model.predict(X_test)
         self.calculate_scores(y_test, y_pred)
 
+    def set_output_files(self):
+        self.dataset_results_folder = os.path.join(self.result_folder, self.dataset_name)
+        if os.path.isdir(self.dataset_results_folder): pass
+        else: os.makedirs(self.dataset_results_folder)
+
+
     def run(self):
         
         X_evaluation, y_evaluation = self.get_dataset()
@@ -120,19 +127,18 @@ class Evaluation_Algorithms():
             X_train, X_test, y_train, y_test = self.perform_preprocessing(preprocessing_objects, X_evaluation, y_evaluation)
             self.evaluate_algorithm(algorithm_object, X_train, X_test, y_train, y_test)
             print(self.machinelearning_metrics)
+        self.set_output_files()
 
 if __name__ == '__main__':
 
-    # now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    # results_folder = os.path.join('..', 'results')
-    # current_results_folder = os.path.join(results_folder, f'results_{now}')
-    # if os.path.isdir(current_results_folder): pass
-    # else: os.makedirs(current_results_folder)
-    
-    
-    # dataset_model = DatasetClass('sfgd', os.path.join('..','Datasets', 'kc1.csv'), 'classification')
+    now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    results_folder = os.path.join('..', 'results')
+    current_results_folder = os.path.join(results_folder, f'results_{now}')
+    if os.path.isdir(current_results_folder): pass
+    else: os.makedirs(current_results_folder)
 
     benchmark_test = Evaluation_Algorithms(
+        current_results_folder,
         DatasetClass('sfgd', os.path.join('..','Datasets', 'kc1.csv'), 'classification')
     )
     benchmark_test.run()
