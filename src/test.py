@@ -55,6 +55,22 @@ class RandomForestClassifier_Personalized(RandomForestClassifier):
         self.is_algorithm = True
         super().__init__()
 
+def create_logger(level):
+    '''
+    Create logger
+    '''
+    logger = logging.getLogger('Algorithm Evaluation')
+    logger.setLevel(level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+    ch.setFormatter(formatter)
+    fh = logging.FileHandler(os.path.join(current_results_folder,'log.log'))
+    fh.setLevel(level)
+    fh.setFormatter(formatter)
+    logger.addHandler(ch)
+    logger.addHandler(fh)
+    return logger
 
 class Evaluation_Algorithms():
     def __init__(self, result_folder, dataset):
@@ -91,6 +107,9 @@ class Evaluation_Algorithms():
         logger.info(f'Number of Preprocessing Stages: {self.number_preprocessing_stages}')
 
     def get_preprocessing_algorithm_objects(self, pipeline):
+        '''
+        Returns the objects of the preprocessing methods used in this combination in a list as well as the object of the ML algorithm used in this combination
+        '''
         class_objects = [pipeline_class() for pipeline_class in pipeline]
         algorithm_object = one([class_object for class_object in class_objects if hasattr(class_object, 'is_algorithm')])
         logger.info(f'Algorithm used: {algorithm_object.__class__.__name__}')
@@ -98,14 +117,20 @@ class Evaluation_Algorithms():
         logger.info(f'Data Preprocessing Methods used: {[preprocessing_object.__class__.__name__ for preprocessing_object in preprocessing_objects]}')
         return preprocessing_objects, algorithm_object
 
-    def perform_preprocessing(self, preprocessing_objects, X, y):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+    def perform_preprocessing(self, preprocessing_objects, X, y, test_size=0.3):
+        '''
+        Performs the preprocessing by splitting the dataset into train test split and using a default test size of 0.3, which may be altered later on
+        '''
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
         preprocessing_pipelines = make_pipeline(*preprocessing_objects)
         X_train_preprocessed = preprocessing_pipelines.fit_transform(X_train)
         X_test_preprocessed = preprocessing_pipelines.transform(X_test)
         return X_train_preprocessed, X_test_preprocessed, y_train, y_test
 
     def calculate_scores(self, y_test, y_pred):
+        '''
+        Writes the achieved performance scores of the ML algorithm to the machinelearning_metrics attribute
+        '''
         if self.dataset_machinelearning_task == 'classification':
             accuracy = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
@@ -120,12 +145,18 @@ class Evaluation_Algorithms():
             self.machinelearning_metrics = [mse, mae, max_e, r2]
 
     def evaluate_algorithm(self, algorithm, X_train, X_test, y_train, y_test):
+        '''
+        Evaluates the ML algorithm used by evaluating the discrepancy between real test target samples and predicted ones by the algorithm
+        '''
         algorithm_model = algorithm
         algorithm_model.fit(X_train, y_train)
         y_pred = algorithm_model.predict(X_test)
         self.calculate_scores(y_test, y_pred)
 
     def set_output_files(self):
+        '''
+        
+        '''
         self.dataset_results_folder = os.path.join(self.result_folder, self.dataset_name)
         if os.path.isdir(self.dataset_results_folder): pass
         else: os.makedirs(self.dataset_results_folder)
@@ -163,19 +194,7 @@ if __name__ == '__main__':
     if os.path.isdir(current_results_folder): pass
     else: os.makedirs(current_results_folder)
 
-    logger = logging.getLogger('Algorithm Evaluation')
-    logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-    ch.setFormatter(formatter)
-    fh = logging.FileHandler(os.path.join(current_results_folder,'log.log'))
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(formatter)
-
-    logger.addHandler(ch)
-    logger.addHandler(fh)
+    logger = create_logger(logging.DEBUG)
 
     benchmark_test = Evaluation_Algorithms(
         current_results_folder,
