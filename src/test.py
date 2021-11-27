@@ -14,6 +14,7 @@ from sklearn.pipeline import make_pipeline
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from imblearn.over_sampling import SMOTE
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -43,16 +44,15 @@ class Base_Transformer(BaseEstimator, TransformerMixin):
     def transform(self, X):
         return X
 
+# To add further algorithms, add here a class with the is_algorithm attribute
 class DecisionTreeClassifier_Personalized(DecisionTreeClassifier):
     def __init__(self):
         self.is_algorithm = True
-        #self.name = 'DecisionTreeClassifier'
         super().__init__()
 
 class RandomForestClassifier_Personalized(RandomForestClassifier):
     def __init__(self):
         self.is_algorithm = True
-        #self.name = 'RandomForestClassifier'
         super().__init__()
 
 
@@ -65,8 +65,12 @@ class Evaluation_Algorithms():
         assert self.dataset_machinelearning_task in ['classification', 'regression']
         self.calculated_combinations = None
         self.machinelearning_metrics = None
+        self.number_preprocessing_stages = None
 
     def get_dataset(self):
+        '''
+        Read dataset from the dataset path and split the column of the target variable from the rest of the dataset
+        '''
         dataset = pd.read_csv(self.dataset_path)
         X = dataset.iloc[:,:-1]
         y = dataset.iloc[:,-1]
@@ -83,13 +87,15 @@ class Evaluation_Algorithms():
             (DecisionTreeClassifier_Personalized, RandomForestClassifier_Personalized),
         ]
         self.calculated_combinations = list(itertools.product(*combinations))
+        self.number_preprocessing_stages = len(combinations)-1
+        logger.info(f'Number of Preprocessing Stages: {self.number_preprocessing_stages}')
 
     def get_preprocessing_algorithm_objects(self, pipeline):
         class_objects = [pipeline_class() for pipeline_class in pipeline]
         algorithm_object = one([class_object for class_object in class_objects if hasattr(class_object, 'is_algorithm')])
         logger.info(f'Algorithm used: {algorithm_object.__class__.__name__}')
         preprocessing_objects = [class_object for class_object in class_objects if not hasattr(class_object, 'is_algorithm')]
-        logger.info(f'Data Preprocessing Methods used: {[preprocessing_object.__name__ for preprocessing_object in preprocessing_objects]}')
+        logger.info(f'Data Preprocessing Methods used: {[preprocessing_object.__class__.__name__ for preprocessing_object in preprocessing_objects]}')
         return preprocessing_objects, algorithm_object
 
     def perform_preprocessing(self, preprocessing_objects, X, y):
@@ -123,12 +129,18 @@ class Evaluation_Algorithms():
         self.dataset_results_folder = os.path.join(self.result_folder, self.dataset_name)
         if os.path.isdir(self.dataset_results_folder): pass
         else: os.makedirs(self.dataset_results_folder)
-
         self.dataset_characteristics_file_path = os.path.join(self.dataset_results_folder, f'{self.dataset_name}_dataset_characteristics.csv')
         self.evaluation_results_file_path = os.path.join(self.dataset_results_folder, f'{self.dataset_name}_evaluation_results.csv')  
 
+    # def create_output_file(self):
+
+    # def write_results_to_file(self):
+
+    # def add_to_results(file):
+
     def run(self):
         logger.info('Start Evaluation')
+        evaluation_results = pd.DataFrame()
         X_evaluation, y_evaluation = self.get_dataset()
         self.calculate_combinations_for_evaluation()
         number_of_combinations = len(self.calculated_combinations)
