@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import os
 import itertools
+
+from sklearn import preprocessing
 from more_itertools import one
 import datetime
 import logging
@@ -82,6 +84,8 @@ class Evaluation_Algorithms():
         self.calculated_combinations = None
         self.machinelearning_metrics = None
         self.number_preprocessing_stages = None
+        self.starting_time = None
+        self.finishing_time = None
 
     def get_dataset(self):
         '''
@@ -116,6 +120,9 @@ class Evaluation_Algorithms():
         preprocessing_objects = [class_object for class_object in class_objects if not hasattr(class_object, 'is_algorithm')]
         logger.info(f'Data Preprocessing Methods used: {[preprocessing_object.__class__.__name__ for preprocessing_object in preprocessing_objects]}')
         return preprocessing_objects, algorithm_object
+
+    def preprocessing_names(self, preprocessing_objects):
+        return [preprocessing_object.__class__.__name__ for preprocessing_object in preprocessing_objects if preprocessing_object.__class__.__name__ != 'Base_Transformer']
 
     def perform_preprocessing(self, preprocessing_objects, X, y, test_size=0.3):
         '''
@@ -153,9 +160,10 @@ class Evaluation_Algorithms():
         y_pred = algorithm_model.predict(X_test)
         self.calculate_scores(y_test, y_pred)
 
-    def set_output_files(self):
+    def create_output_datapaths(self):
         '''
-        
+        Creation of the output datapaths in the result folder. When evaluating multiple dataset at once, for every dataset a result folder is created based on the dataset name.
+        Inside the result folder for the evaluated dataset the paths for the csv files containing the evaluation results and dataset characteristics are created.
         '''
         self.dataset_results_folder = os.path.join(self.result_folder, self.dataset_name)
         if os.path.isdir(self.dataset_results_folder): pass
@@ -163,11 +171,28 @@ class Evaluation_Algorithms():
         self.dataset_characteristics_file_path = os.path.join(self.dataset_results_folder, f'{self.dataset_name}_dataset_characteristics.csv')
         self.evaluation_results_file_path = os.path.join(self.dataset_results_folder, f'{self.dataset_name}_evaluation_results.csv')  
 
+    def create_preprocessing_dict(self, preprocessing_objects):
+        number_preprocessing_methods = ['Preprocessing_Method_'+str(count) for count in range(self.number_preprocessing_stages)]
+        return dict(zip(number_preprocessing_methods, self.preprocessing_names(preprocessing_objects)))
+
+    # def create_metrics_dict(self):
+
+
+    def add_to_results(self, preprocessing_objects):
+        preprocessing_dict = self.create_preprocessing_dict(preprocessing_objects)
+        result_dict = {
+            'Name':self.dataset_name,
+            'Starting Time':self.starting_time,
+            'Finishing Time':self.finishing_time,
+            **preprocessing_dict,
+        }
+
+
+
     # def create_output_file(self):
 
     # def write_results_to_file(self):
 
-    # def add_to_results(file):
 
     def run(self):
         logger.info('Start Evaluation')
@@ -179,12 +204,14 @@ class Evaluation_Algorithms():
         for combination in self.calculated_combinations:
             logger.info(f'Number of combinations to solve: {number_of_combinations}')
             preprocessing_objects, algorithm_object = self.get_preprocessing_algorithm_objects(combination)
+            self.starting_time = datetime.datetime.now()
             X_train, X_test, y_train, y_test = self.perform_preprocessing(preprocessing_objects, X_evaluation, y_evaluation)
             self.evaluate_algorithm(algorithm_object, X_train, X_test, y_train, y_test)
+            self.finishing_time = datetime.datetime.now()
             print(self.machinelearning_metrics)
 
             number_of_combinations -= 1
-        self.set_output_files()
+        self.create_output_datapaths()
 
 if __name__ == '__main__':
 
