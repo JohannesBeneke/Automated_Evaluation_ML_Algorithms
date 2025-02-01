@@ -107,8 +107,8 @@ if __name__ == "__main__":
     sfgd = pd.read_csv(os.path.join('..','Datasets', 'kc1.csv'))
     #X = sfgd.iloc[:,:-1]
     
-    transformer = MostFrequentImputer()
+    transformer = OverSampling()
     X = pd.DataFrame(data={'col1':[0,1,6, 2,1, 5, 900, np.nan], 'col2':['A', 'B', 'A','C','D', 'B', 'A',np.nan]})
-    print(X)
-    # X = transformer.fit_transform(X)
+    # print(X)
+    X = transformer.fit_transform(X)
     # print(X)

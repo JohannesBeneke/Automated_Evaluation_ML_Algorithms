@@ -17,6 +17,8 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, max_error, r2_score
 
+from sklearn.pipeline import make_pipeline
+
 class DatasetModel():
     '''
     Class that enables the creation of a dataset object including the name, the file path and the corresponding machine learning algorithm
@@ -27,13 +29,20 @@ class DatasetModel():
         self.dataset_path = dataset_path
         self.machinelearning_task = machinelearning_task
 
-# To add further algorithms, add here a class with the is_algorithm attribute
+# To add further algorithms, add here a class with the is_algorithm attribute to differentiate algorithms from preprocessing methods
 class DecisionTreeClassifier_Personalized(DecisionTreeClassifier):
     def __init__(self):
         self.is_algorithm = True
         super().__init__()
-
 class RandomForestClassifier_Personalized(RandomForestClassifier):
+    def __init__(self):
+        self.is_algorithm = True
+        super().__init__()
+class DecisionTreeRegressor_Personalized(DecisionTreeRegressor):
+    def __init__(self):
+        self.is_algorithm = True
+        super().__init__()
+class RandomForestRegressor_Personalized(RandomForestRegressor):
     def __init__(self):
         self.is_algorithm = True
         super().__init__()
@@ -65,6 +74,7 @@ class Evaluation_Algorithms():
         self.calculated_combinations = None
         self.machinelearning_metrics = None
         self.number_preprocessing_stages = None
+        self.number_preprocessing_combinations = None
         self.starting_time = None
         self.finishing_time = None
 
@@ -77,7 +87,7 @@ class Evaluation_Algorithms():
         y = dataset.iloc[:,-1]
         return X, y
 
-    def calculate_preprocessing_combinations(self, data_to_evaluate):
+    def calculate_combinations(self, data_to_evaluate, algorithms):
         '''
         Calculate the combinations of data preprocessing methods and machine learning algorithms to evaluate in the benchmarking.
         The resulting combinations are calculated by using a factorial design that enables the calculation of every possible combination.
@@ -88,7 +98,7 @@ class Evaluation_Algorithms():
         else:
             imputation_methods = (MeanImputer, MedianImputer,MostFrequentImputer)
         
-        if len(X.columns[X.dtypes == 'object']) == 0:
+        if len(data_to_evaluate.columns[data_to_evaluate.dtypes == 'object']) == 0:
             encoding_methods = (DummyTransformer, )
         else:
             encoding_methods = (TargetEncoder,OrdinalEncoder,OneHotEncoder)
@@ -99,17 +109,19 @@ class Evaluation_Algorithms():
             sampling_methods = (DummyTransformer, )
         
         neccessary_preprocessing = (RemoveConstColumn, RemoveDuplicateRows)
-        
+
         # Calculate the cartesian product of all preprocessing methods in order to evaluate all possible combinations
         preprocessing_methods = [
             imputation_methods,
             encoding_methods,
             (DummyTransformer, StandardScaling, MinMaxScaling),
             (DummyTransformer, PCA_New),
-            sampling_methods
+            # sampling_methods
+            algorithms
         ]
 
         self.preprocessing_product = list(itertools.product(*preprocessing_methods))
+        self.number_preprocessing_combinations = len(self.preprocessing_product)
         self.number_preprocessing_stages = len(preprocessing_methods)
         logger.info(f'Number of Preprocessing Stages: {self.number_preprocessing_stages}')
 
@@ -137,6 +149,15 @@ class Evaluation_Algorithms():
         X_test_preprocessed = preprocessing_pipelines.transform(X_test)
         return X_train_preprocessed, X_test_preprocessed, y_train, y_test
 
+    def evaluate_algorithm(self, algorithm, X_train, X_test, y_train, y_test):
+        '''
+        Evaluates the ML algorithm used by evaluating the discrepancy between real test target samples and predicted ones by the algorithm
+        '''
+        algorithm_model = algorithm
+        algorithm_model.fit(X_train, y_train)
+        y_pred = algorithm_model.predict(X_test)
+        self.calculate_scores(y_test, y_pred)
+
     def calculate_scores(self, y_test, y_pred):
         '''
         Writes the achieved performance scores of the ML algorithm to the machinelearning_metrics attribute
@@ -154,15 +175,6 @@ class Evaluation_Algorithms():
             r2 = r2_score(y_test, y_pred)
             self.machinelearning_metrics = [mse, mae, max_e, r2]
 
-    def evaluate_algorithm(self, algorithm, X_train, X_test, y_train, y_test):
-        '''
-        Evaluates the ML algorithm used by evaluating the discrepancy between real test target samples and predicted ones by the algorithm
-        '''
-        algorithm_model = algorithm
-        algorithm_model.fit(X_train, y_train)
-        y_pred = algorithm_model.predict(X_test)
-        self.calculate_scores(y_test, y_pred)
-
     def create_output_datapaths(self):
         '''
         Creation of the output datapaths in the result folder. When evaluating multiple dataset at once, for every dataset a result folder is created based on the dataset name.
@@ -177,10 +189,7 @@ class Evaluation_Algorithms():
     def create_preprocessing_dict(self, preprocessing_objects):
         number_preprocessing_methods = ['Preprocessing_Method_'+str(count) for count in range(self.number_preprocessing_stages)]
         return dict(zip(number_preprocessing_methods, self.preprocessing_names(preprocessing_objects)))
-
-    # def create_metrics_dict(self):
-
-
+    
     def add_to_results(self, preprocessing_objects):
         preprocessing_dict = self.create_preprocessing_dict(preprocessing_objects)
         result_dict = {
@@ -197,22 +206,33 @@ class Evaluation_Algorithms():
     # def write_results_to_file(self):
 
 
-    def run(self):
+    def run_preprocessing(self):
         logger.info('Start Evaluation')
+        if self.dataset_machinelearning_task == 'classification':
+            algorithms = (
+                DecisionTreeClassifier_Personalized,
+                RandomForestClassifier_Personalized
+            )
+        elif self.dataset_machinelearning_task == 'regression':
+            algorithms = (
+                DecisionTreeRegressor_Personalized,
+                RandomForestRegressor_Personalized
+            )
         evaluation_results = pd.DataFrame()
         X_evaluation, y_evaluation = self.get_dataset()
-        self.calculate_combinations_for_evaluation()
-        number_of_combinations = len(self.calculated_combinations)
-        
-        for combination in self.calculated_combinations:
+        self.calculate_combinations(X_evaluation, algorithms)
+
+        number_of_combinations = self.number_preprocessing_combinations
+        for combination in self.preprocessing_product:
             logger.info(f'Number of combinations to solve: {number_of_combinations}')
             preprocessing_objects, algorithm_object = self.get_preprocessing_algorithm_objects(combination)
+            print(preprocessing_objects)
+            print(algorithm_object)
             self.starting_time = datetime.datetime.now()
             X_train, X_test, y_train, y_test = self.perform_preprocessing(preprocessing_objects, X_evaluation, y_evaluation)
             self.evaluate_algorithm(algorithm_object, X_train, X_test, y_train, y_test)
             self.finishing_time = datetime.datetime.now()
             print(self.machinelearning_metrics)
-
             number_of_combinations -= 1
         self.create_output_datapaths()
 
@@ -228,10 +248,9 @@ if __name__ == '__main__':
 
     benchmark_test = Evaluation_Algorithms(
         current_results_folder,
-        DatasetClass('sfgd', os.path.join('..','Datasets','kc1.csv'), 'classification')
+        DatasetModel('sfgd', os.path.join('..','Datasets','kc1.csv'), 'classification')
     )
-    benchmark_test.run()
-
+    benchmark_test.run_preprocessing()
 
 
 
