@@ -23,8 +23,13 @@ from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.combine import SMOTEENN
 
+# Create DummyTransformer to use in preprocessing pipeline in the case from a category like missing value handling nothing is used
+class DummyTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self): pass
+    def fit(self, X, y=None): return self
+    def transform(self, X, y = None): return X
 
-# Essentials
+# Essentials used in every preprocessing combination
 class RemoveConstColumn(BaseEstimator, TransformerMixin):
     def __init__(self): pass
     def fit(self, X, y=None): return self
@@ -105,5 +110,5 @@ if __name__ == "__main__":
     transformer = MostFrequentImputer()
     X = pd.DataFrame(data={'col1':[0,1,6, 2,1, 5, 900, np.nan], 'col2':['A', 'B', 'A','C','D', 'B', 'A',np.nan]})
     print(X)
-    X = transformer.fit_transform(X)
-    print(X)
+    # X = transformer.fit_transform(X)
+    # print(X)

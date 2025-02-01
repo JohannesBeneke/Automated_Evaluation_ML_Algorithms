@@ -11,8 +11,8 @@ from preprocessing_methods import *
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, max_error, r2_score
@@ -26,18 +26,6 @@ class DatasetModel():
         self.name = name
         self.dataset_path = dataset_path
         self.machinelearning_task = machinelearning_task
-
-class Base_Transformer(BaseEstimator, TransformerMixin):
-    '''
-    Basic Transformer that is used to enable combinations of data preprocessing methods without the use of a specific method 
-    '''
-    def __init__(self):
-        pass
-        self.__name__ = 'Base_Transformer'
-    def fit(self, X):
-        return self
-    def transform(self, X):
-        return X
 
 # To add further algorithms, add here a class with the is_algorithm attribute
 class DecisionTreeClassifier_Personalized(DecisionTreeClassifier):
@@ -89,18 +77,40 @@ class Evaluation_Algorithms():
         y = dataset.iloc[:,-1]
         return X, y
 
-    def calculate_combinations_for_evaluation(self):
+    def calculate_preprocessing_combinations(self, data_to_evaluate):
         '''
         Calculate the combinations of data preprocessing methods and machine learning algorithms to evaluate in the benchmarking.
         The resulting combinations are calculated by using a factorial design that enables the calculation of every possible combination.
         '''
-        combinations=[
-            (Base_Transformer, StandardScaler),
-            (Base_Transformer, PCA),
-            (DecisionTreeClassifier_Personalized, RandomForestClassifier_Personalized),
+        # Check for data quality metrics to skip some methods not applicable to the dataset. Also add no Dummytransformer to the imputation methods, since some ML algorithms cannot work with missing or categorical data 
+        if data_to_evaluate.isna().sum().sum() == 0:
+            imputation_methods = (DummyTransformer,)
+        else:
+            imputation_methods = (MeanImputer, MedianImputer,MostFrequentImputer)
+        
+        if len(X.columns[X.dtypes == 'object']) == 0:
+            encoding_methods = (DummyTransformer, )
+        else:
+            encoding_methods = (TargetEncoder,OrdinalEncoder,OneHotEncoder)
+
+        if self.dataset_machinelearning_task == 'classification':
+            sampling_methods = (DummyTransformer, OverSampling, UnderSampling, CombineSampling)
+        elif self.dataset_machinelearning_task == 'regression':
+            sampling_methods = (DummyTransformer, )
+        
+        neccessary_preprocessing = (RemoveConstColumn, RemoveDuplicateRows)
+        
+        # Calculate the cartesian product of all preprocessing methods in order to evaluate all possible combinations
+        preprocessing_methods = [
+            imputation_methods,
+            encoding_methods,
+            (DummyTransformer, StandardScaling, MinMaxScaling),
+            (DummyTransformer, PCA_New),
+            sampling_methods
         ]
-        self.calculated_combinations = list(itertools.product(*combinations))
-        self.number_preprocessing_stages = len(combinations)-1
+
+        self.preprocessing_product = list(itertools.product(*preprocessing_methods))
+        self.number_preprocessing_stages = len(preprocessing_methods)
         logger.info(f'Number of Preprocessing Stages: {self.number_preprocessing_stages}')
 
     def get_preprocessing_algorithm_objects(self, pipeline):
