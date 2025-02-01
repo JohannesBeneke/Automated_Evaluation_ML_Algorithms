@@ -1,22 +1,15 @@
 from itertools import combinations_with_replacement
-import pandas as pd
-import numpy as np
 import os
 import itertools
 
-from sklearn import preprocessing
 from more_itertools import one
 import datetime
-import logging
+import logging 
 
-from sklearn.base import BaseEstimator, TransformerMixin
+from preprocessing_methods import *
 
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from imblearn.over_sampling import SMOTE
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -24,7 +17,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, max_error, r2_score
 
-class DatasetClass():
+class DatasetModel():
     '''
     Class that enables the creation of a dataset object including the name, the file path and the corresponding machine learning algorithm
     '''
@@ -225,7 +218,7 @@ if __name__ == '__main__':
 
     benchmark_test = Evaluation_Algorithms(
         current_results_folder,
-        DatasetClass('sfgd', os.path.join('..','Datasets', 'kc1.csv'), 'classification')
+        DatasetClass('sfgd', os.path.join('..','Datasets','kc1.csv'), 'classification')
     )
     benchmark_test.run()
 
