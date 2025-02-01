@@ -116,7 +116,7 @@ class Evaluation_Algorithms():
             encoding_methods,
             (DummyTransformer, StandardScaling, MinMaxScaling),
             (DummyTransformer, PCA_New),
-            # sampling_methods
+            sampling_methods,
             algorithms
         ]
 
@@ -144,9 +144,15 @@ class Evaluation_Algorithms():
         Performs the preprocessing by splitting the dataset into train test split and using a default test size of 0.3, which may be altered later on
         '''
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
-        preprocessing_pipelines = make_pipeline(*preprocessing_objects)
-        X_train_preprocessed = preprocessing_pipelines.fit_transform(X_train)
-        X_test_preprocessed = preprocessing_pipelines.transform(X_test)
+        non_samplers = [preprocessing_obj for preprocessing_obj in preprocessing_objects if not hasattr(preprocessing_obj, 'is_sampler')]
+        non_sampler_pipelines = make_pipeline(*non_samplers)
+        X_train_preprocessed = non_sampler_pipelines.fit_transform(X_train)
+        X_test_preprocessed = non_sampler_pipelines.transform(X_test)
+
+        sampler = [preprocessing_obj for preprocessing_obj in preprocessing_objects if hasattr(preprocessing_obj, 'is_sampler')]
+        if len(sampler) != 0:
+            print(one(sampler))
+            X_train_preprocessed, y_train = one(sampler).fit_resample(X_train_preprocessed, y_train)
         return X_train_preprocessed, X_test_preprocessed, y_train, y_test
 
     def evaluate_algorithm(self, algorithm, X_train, X_test, y_train, y_test):

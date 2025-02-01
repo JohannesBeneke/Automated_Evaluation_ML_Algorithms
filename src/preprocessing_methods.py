@@ -95,20 +95,28 @@ class PCA_New(PCA):
 class OverSampling(SMOTE):
     def __init__(self):
         super().__init__(random_state=42)
+        self.is_sampler = True
+    #def fit_transform(self, X, y): return self.fit_resample(X, y)
 class UnderSampling(RandomUnderSampler):
     def __init__(self):
         super().__init__(random_state=42)
+        self.is_sampler = True
 class CombineSampling(SMOTEENN):
     def __init__(self):
         super().__init__(random_state=42)
+        self.is_sampler = True
 
 if __name__ == "__main__":
     import os
     sfgd = pd.read_csv(os.path.join('..','Datasets', 'kc1.csv'))
-    #X = sfgd.iloc[:,:-1]
+    X = sfgd.iloc[:,:-1]
+    y = sfgd.iloc[:,-1]
     
     transformer = OverSampling()
-    X = pd.DataFrame(data={'col1':[0,1,6, 2,1, 5, 900, np.nan], 'col2':['A', 'B', 'A','C','D', 'B', 'A',np.nan]})
+    # X = pd.DataFrame(data={'col1':[0,1,6, 2,1, 5, 900, np.nan], 'col2':['A', 'B', 'A','C','D', 'B', 'A',np.nan]})
     # print(X)
-    X = transformer.fit_transform(X)
+    if hasattr(transformer, 'is_sampler'):
+        X, y = transformer.fit_resample(X,y)
+    else:
+        X = transformer.fit_transform(X)
     # print(X)
