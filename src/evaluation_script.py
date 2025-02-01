@@ -47,25 +47,8 @@ class RandomForestRegressor_Personalized(RandomForestRegressor):
         self.is_algorithm = True
         super().__init__()
 
-def create_logger(level):
-    '''
-    Create logger
-    '''
-    logger = logging.getLogger('Algorithm Evaluation')
-    logger.setLevel(level)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch = logging.StreamHandler()
-    ch.setLevel(level)
-    ch.setFormatter(formatter)
-    fh = logging.FileHandler(os.path.join(current_results_folder,'log.log'))
-    fh.setLevel(level)
-    fh.setFormatter(formatter)
-    logger.addHandler(ch)
-    logger.addHandler(fh)
-    return logger
-
 class Evaluation_Algorithms():
-    def __init__(self, result_folder, dataset):
+    def __init__(self, result_folder, dataset, logger):
         self.result_folder = result_folder
         self.dataset_name = dataset.name
         self.dataset_path = dataset.dataset_path
@@ -77,6 +60,7 @@ class Evaluation_Algorithms():
         self.number_preprocessing_combinations = None
         self.starting_time = None
         self.finishing_time = None
+        self.logger = logger
 
     def get_dataset(self):
         '''
@@ -123,7 +107,7 @@ class Evaluation_Algorithms():
         self.preprocessing_product = list(itertools.product(*preprocessing_methods))
         self.number_preprocessing_combinations = len(self.preprocessing_product)
         self.number_preprocessing_stages = len(preprocessing_methods)
-        logger.info(f'Number of Preprocessing Stages: {self.number_preprocessing_stages}')
+        self.logger.info(f'Number of Preprocessing Stages: {self.number_preprocessing_stages}')
 
     def get_preprocessing_algorithm_objects(self, pipeline):
         '''
@@ -131,9 +115,9 @@ class Evaluation_Algorithms():
         '''
         class_objects = [pipeline_class() for pipeline_class in pipeline]
         algorithm_object = one([class_object for class_object in class_objects if hasattr(class_object, 'is_algorithm')])
-        logger.info(f'Algorithm used: {algorithm_object.__class__.__name__}')
+        self.logger.info(f'Algorithm used: {algorithm_object.__class__.__name__}')
         preprocessing_objects = [class_object for class_object in class_objects if not hasattr(class_object, 'is_algorithm')]
-        logger.info(f'Data Preprocessing Methods used: {[preprocessing_object.__class__.__name__ for preprocessing_object in preprocessing_objects]}')
+        self.logger.info(f'Data Preprocessing Methods used: {[preprocessing_object.__class__.__name__ for preprocessing_object in preprocessing_objects]}')
         return preprocessing_objects, algorithm_object
 
     def preprocessing_names(self, preprocessing_objects):
@@ -141,7 +125,8 @@ class Evaluation_Algorithms():
 
     def perform_preprocessing(self, preprocessing_objects, X, y, test_size=0.3):
         '''
-        Performs the preprocessing by splitting the dataset into train test split and using a default test size of 0.3, which may be altered later on
+        Performs the preprocessing by splitting the dataset into train test split and using a default test size of 0.3, which may be altered later on.
+        We need to look at sampling specifically, because it doesn't use the fit_transform method.
         '''
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size)
         non_samplers = [preprocessing_obj for preprocessing_obj in preprocessing_objects if not hasattr(preprocessing_obj, 'is_sampler')]
@@ -151,7 +136,6 @@ class Evaluation_Algorithms():
 
         sampler = [preprocessing_obj for preprocessing_obj in preprocessing_objects if hasattr(preprocessing_obj, 'is_sampler')]
         if len(sampler) != 0:
-            print(one(sampler))
             X_train_preprocessed, y_train = one(sampler).fit_resample(X_train_preprocessed, y_train)
         return X_train_preprocessed, X_test_preprocessed, y_train, y_test
 
@@ -213,7 +197,7 @@ class Evaluation_Algorithms():
 
 
     def run_preprocessing(self):
-        logger.info('Start Evaluation')
+        self.logger.info('Start Evaluation')
         if self.dataset_machinelearning_task == 'classification':
             algorithms = (
                 DecisionTreeClassifier_Personalized,
@@ -230,10 +214,8 @@ class Evaluation_Algorithms():
 
         number_of_combinations = self.number_preprocessing_combinations
         for combination in self.preprocessing_product:
-            logger.info(f'Number of combinations to solve: {number_of_combinations}')
+            self.logger.info(f'Number of combinations to solve: {number_of_combinations}')
             preprocessing_objects, algorithm_object = self.get_preprocessing_algorithm_objects(combination)
-            print(preprocessing_objects)
-            print(algorithm_object)
             self.starting_time = datetime.datetime.now()
             X_train, X_test, y_train, y_test = self.perform_preprocessing(preprocessing_objects, X_evaluation, y_evaluation)
             self.evaluate_algorithm(algorithm_object, X_train, X_test, y_train, y_test)
@@ -244,19 +226,20 @@ class Evaluation_Algorithms():
 
 if __name__ == '__main__':
 
-    now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    results_folder = os.path.join('..', 'results')
-    current_results_folder = os.path.join(results_folder, f'results_{now}')
-    if os.path.isdir(current_results_folder): pass
-    else: os.makedirs(current_results_folder)
+    pass
+    # now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    # results_folder = os.path.join('..', 'results')
+    # current_results_folder = os.path.join(results_folder, f'results_{now}')
+    # if os.path.isdir(current_results_folder): pass
+    # else: os.makedirs(current_results_folder)
 
-    logger = create_logger(logging.DEBUG)
+    # logger = create_logger(logging.DEBUG)
 
-    benchmark_test = Evaluation_Algorithms(
-        current_results_folder,
-        DatasetModel('sfgd', os.path.join('..','Datasets','kc1.csv'), 'classification')
-    )
-    benchmark_test.run_preprocessing()
+    # benchmark_test = Evaluation_Algorithms(
+    #     current_results_folder,
+    #     DatasetModel('sfgd', os.path.join('..','Datasets','kc1.csv'), 'classification')
+    # )
+    # benchmark_test.run_preprocessing()
 
 
 
