@@ -50,17 +50,12 @@ class Evaluation_Algorithms():
         self.dataset_path = dataset.dataset_path
         self.dataset_machinelearning_task = dataset.machinelearning_task
         assert self.dataset_machinelearning_task in ['classification', 'regression']
-        self.calculated_combinations = None
         self.machinelearning_metrics = None
-        self.machinelearning_metrics_names = None
-        self.number_preprocessing_stages = None
-        self.number_preprocessing_combinations = None
         self.starting_time = None
         self.finishing_time = None
         self.logger = logger
         self.dataset_characteristics_file_path = None
         self.evaluation_results_file_path = None
-        self.results_dataframe = pd.DataFrame()
 
     def get_dataset(self):
         '''
@@ -69,6 +64,7 @@ class Evaluation_Algorithms():
         dataset = pd.read_csv(self.dataset_path)
         X = dataset.iloc[:,:-1]
         y = dataset.iloc[:,-1]
+        
         return X, y
 
     def calculate_combinations(self, data_to_evaluate, algorithms):
@@ -92,8 +88,6 @@ class Evaluation_Algorithms():
             sampling_methods = (DummyTransformer, OverSampling, UnderSampling, CombineSampling)
         elif self.dataset_machinelearning_task == 'regression':
             sampling_methods = (DummyTransformer, )
-        
-        optional_preprocessing = (RemoveConstColumn, RemoveDuplicateRows)
 
         # Calculate the cartesian product of all preprocessing methods in order to evaluate all possible combinations
         preprocessing_methods = [
@@ -104,13 +98,12 @@ class Evaluation_Algorithms():
             sampling_methods,
             algorithms
         ]
-
         self.preprocessing_product = list(itertools.product(*preprocessing_methods))
-        self.number_preprocessing_combinations = len(self.preprocessing_product)
-        self.number_preprocessing_stages = len(preprocessing_methods)
-        self.logger.info(f'Number of Preprocessing Stages: {self.number_preprocessing_stages}')
 
     def get_algorithms(self):
+        '''
+        Create tuples of algorithms used in the benchmarking.
+        '''
         if self.dataset_machinelearning_task == 'classification':
             algorithms = (
                 DecisionTreeClassifier_Personalized,
@@ -121,6 +114,7 @@ class Evaluation_Algorithms():
                 DecisionTreeRegressor_Personalized,
                 RandomForestRegressor_Personalized
             )
+        
         return algorithms
 
     def get_preprocessing_algorithm_objects(self, pipeline):
@@ -133,6 +127,7 @@ class Evaluation_Algorithms():
 
         self.logger.info(f'Algorithm used: {algorithm_object.__class__.__name__}')
         self.logger.info(f'Data Preprocessing Methods used: {[obj.__class__.__name__ for obj in preprocessing_objects if not obj.__class__.__name__ == 'DummyTransformer']}')
+        
         return preprocessing_objects, algorithm_object
 
     def perform_preprocessing(self, preprocessing_objects, X, y, test_size=0.3):
@@ -144,12 +139,12 @@ class Evaluation_Algorithms():
         # Necessary preprocessing
         necessary_preprocessing = make_pipeline(*(RemoveConstColumn(), RemoveDuplicateRows()))
         X_train = necessary_preprocessing.fit_transform(X_train)
-
+        # Perform preprocessing of non-sampling methods using fit_transform
         non_samplers = [obj for obj in preprocessing_objects if not hasattr(obj, 'is_sampler')]
         non_sampler_pipelines = make_pipeline(*non_samplers)
         X_train = non_sampler_pipelines.fit_transform(X_train)
         X_test = non_sampler_pipelines.transform(X_test)
-
+        #Perform preprocessing of sampling methods using fit_resample
         sampler = [obj for obj in preprocessing_objects if hasattr(obj, 'is_sampler')]
         if len(sampler) != 0:
             X_train, y_train = one(sampler).fit_resample(X_train, y_train)
@@ -195,17 +190,20 @@ class Evaluation_Algorithms():
         self.evaluation_results_file_path = os.path.join(self.dataset_results_folder, f'{self.dataset_name}_evaluation_results.csv')  
 
     def append_result(self, records, preprocessing_objects, algorithm_object):
+        '''
+        Create new entry in the records list using the preprocessing methods and algorithm used as well as the calculated metrics.
+        '''
         if self.dataset_machinelearning_task == 'classification':
-            self.machinelearning_metrics_names = ['Accuracy', 'F1', 'Precision', 'Recall']
+            machinelearning_metrics_names = ['Accuracy', 'F1', 'Precision', 'Recall']
         if self.dataset_machinelearning_task == 'regression':
-            self.machinelearning_metrics_names = ['MSE', 'MAE', 'Max_E', 'R2']  
+            machinelearning_metrics_names = ['MSE', 'MAE', 'Max_E', 'R2']  
         records.append({
             'Dataset Name':self.dataset_name,
             'Starting Time':self.starting_time,
             'Finishing Time':self.finishing_time,
             **{f'Preprocessing_Method_{i}' : '' if preprocessing_obj.__class__.__name__ == 'DummyTransformer' else preprocessing_obj for i, preprocessing_obj in enumerate(preprocessing_objects)},
             'Algorithm':algorithm_object.__class__.__name__,
-            **dict(zip(self.machinelearning_metrics_names, self.machinelearning_metrics))
+            **dict(zip(machinelearning_metrics_names, self.machinelearning_metrics))
         })
 
     def run(self):
@@ -230,8 +228,7 @@ class Evaluation_Algorithms():
             self.evaluate_algorithm(algorithm_object, X_train, X_test, y_train, y_test)
             self.finishing_time = datetime.datetime.now()
             self.append_result(records,preprocessing_objects,algorithm_object)
-        self.results_dataframe = pd.DataFrame(records)
-        self.results_dataframe.to_csv(self.evaluation_results_file_path)
+        pd.DataFrame(records).to_csv(self.evaluation_results_file_path)
 
 if __name__ == '__main__':
 
