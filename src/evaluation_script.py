@@ -1,10 +1,8 @@
-from itertools import combinations_with_replacement
 import os
 import itertools
 
 from more_itertools import one
 import datetime
-import logging 
 
 from preprocessing_methods import *
 
@@ -129,11 +127,12 @@ class Evaluation_Algorithms():
         '''
         Returns the objects of the preprocessing methods used in this combination in a list as well as the object of the ML algorithm used in this combination
         '''
-        class_objects = [pipeline_class() for pipeline_class in pipeline]
-        algorithm_object = one([class_object for class_object in class_objects if hasattr(class_object, 'is_algorithm')])
+        objects = [pipeline_class() for pipeline_class in pipeline]
+        algorithm_object = one(filter(lambda obj: hasattr(obj, 'is_algorithm'), objects))
+        preprocessing_objects = [obj for obj in objects if not hasattr(obj, 'is_algorithm')]
+
         self.logger.info(f'Algorithm used: {algorithm_object.__class__.__name__}')
-        preprocessing_objects = [class_object for class_object in class_objects if not hasattr(class_object, 'is_algorithm')]
-        self.logger.info(f'Data Preprocessing Methods used: {[x.__class__.__name__ for x in preprocessing_objects if not x.__class__.__name__ == 'DummyTransformer']}')
+        self.logger.info(f'Data Preprocessing Methods used: {[obj.__class__.__name__ for obj in preprocessing_objects if obj.__class__.__name__ != 'DummyTransformer']}')
         return preprocessing_objects, algorithm_object
 
     def perform_preprocessing(self, preprocessing_objects, X, y, test_size=0.3):
@@ -159,11 +158,10 @@ class Evaluation_Algorithms():
         if self.dataset_machinelearning_task == 'regression':
             self.machinelearning_metrics_names = ['MSE', 'MAE', 'Max_E', 'R2']   
 
-    def evaluate_algorithm(self, algorithm, X_train, X_test, y_train, y_test):
+    def evaluate_algorithm(self, algorithm_model, X_train, X_test, y_train, y_test):
         '''
         Evaluates the ML algorithm used by evaluating the discrepancy between real test target samples and predicted ones by the algorithm
         '''
-        algorithm_model = algorithm
         algorithm_model.fit(X_train, y_train)
         y_pred = algorithm_model.predict(X_test)
         self.calculate_scores(y_test, y_pred)
@@ -196,18 +194,11 @@ class Evaluation_Algorithms():
         self.dataset_characteristics_file_path = os.path.join(self.dataset_results_folder, f'{self.dataset_name}_dataset_characteristics.csv')
         self.evaluation_results_file_path = os.path.join(self.dataset_results_folder, f'{self.dataset_name}_evaluation_results.csv')  
 
-    def create_preprocessing_dict(self, preprocessing_objects):
-        preprocessing_methods_header = ['Preprocessing_Method_'+str(count) for count in range(self.number_preprocessing_stages)]
-        return dict(zip(preprocessing_methods_header, [np.nan if x.__class__.__name__ == 'DummyTransformer' else x.__class__.__name__ for x in preprocessing_objects]))
-    
-    def create_results_dict(self, algorithm):
-        algorithm_dict = {'Algorithm': algorithm}
-        scores_dict = dict(zip(self.machinelearning_metrics_names, self.machinelearning_metrics))
-        return algorithm_dict, scores_dict
-
     def add_to_results(self, preprocessing_objects, algorithm_object):
-        preprocessing_dict = self.create_preprocessing_dict(preprocessing_objects)
-        algorithm_dict, scores_dict = self.create_results_dict(algorithm_object)
+        algorithm_dict = {'Algorithm': algorithm_object}
+        scores_dict = dict(zip(self.machinelearning_metrics_names, self.machinelearning_metrics))
+        preprocessing_methods_header = ['Preprocessing_Method_'+str(count) for count in range(self.number_preprocessing_stages)]
+        preprocessing_dict = dict(zip(preprocessing_methods_header, [np.nan if x.__class__.__name__ == 'DummyTransformer' else x.__class__.__name__ for x in preprocessing_objects]))
         result_dict = {
             'Name':self.dataset_name,
             'Starting Time':self.starting_time,
@@ -228,31 +219,37 @@ class Evaluation_Algorithms():
         result_dict = self.add_to_results(preprocessing_objects, algorithm_object)
         self.results_dataframe.loc[len(self.results_dataframe)] = result_dict
     
-    def write_results_to_file(self):
+    def save_results(self):
         self.results_dataframe.to_csv(self.evaluation_results_file_path)
 
-    def run_benchmarking(self):
+    def run(self):
+        '''
+        Executes Benchmarking.
+        '''
         self.logger.info('Start Evaluation')
-        self.create_output_datapaths()
 
-        algorithms_for_benchmarking  = self.get_algorithms()
-        X_evaluation, y_evaluation = self.get_dataset()
+        self.create_output_datapaths()
+        X, y = self.get_dataset()
+        algorithms_for_benchmarking  = self.get_algorithms() 
         self.get_machinelearning_metrics_names()
-        self.calculate_combinations(X_evaluation, algorithms_for_benchmarking)
+        self.calculate_combinations(X, algorithms_for_benchmarking)
         self.create_results_dataframe()
 
-        number_of_combinations = self.number_preprocessing_combinations
-        for combination in self.preprocessing_product:
-            self.logger.info(f'Number of combinations to solve: {number_of_combinations}')
+        for idx, combination in enumerate(self.preprocessing_product,1):
+            self.logger.info(f'Evaluating combination: {idx}/{len(self.preprocessing_product)}')
+
             preprocessing_objects, algorithm_object = self.get_preprocessing_algorithm_objects(combination)
             self.starting_time = datetime.datetime.now()
-            X_train, X_test, y_train, y_test = self.perform_preprocessing(preprocessing_objects, X_evaluation, y_evaluation)
+            X_train, X_test, y_train, y_test = self.perform_preprocessing(preprocessing_objects, X, y)
             self.evaluate_algorithm(algorithm_object, X_train, X_test, y_train, y_test)
             self.finishing_time = datetime.datetime.now()
             self.logger.info(f'ML Scores: {self.machinelearning_metrics}')
             self.append_result(preprocessing_objects, algorithm_object)
+
+            result_dict = self.add_to_results(preprocessing_objects, algorithm_object)
+            self.results_dataframe.loc[len(self.results_dataframe)] = result_dict
             number_of_combinations -= 1
-        self.write_results_to_file()
+        self.save_results()
 
 if __name__ == '__main__':
 

@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     benchmark_test = Evaluation_Algorithms(
         current_results_folder,
-        DatasetModel('sfgd', os.path.join('..','Datasets','kc1.csv'), 'classification'),
+        DatasetModel('sfgd', os.path.join('..','Datasets','php0iVrYT.csv'), 'classification'),
         logger
     )
-    benchmark_test.run_benchmarking()
+    benchmark_test.run()
