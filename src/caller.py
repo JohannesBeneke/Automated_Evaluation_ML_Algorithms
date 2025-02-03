@@ -1,7 +1,6 @@
 import logging
 import os 
 import datetime
-import pandas as pd
 import logger_personalized
 from evaluation_script import Evaluation_Algorithms, DatasetModel
 
@@ -21,4 +20,4 @@ if __name__ == '__main__':
         DatasetModel('sfgd', os.path.join('..','Datasets','kc1.csv'), 'classification'),
         logger
     )
-    benchmark_test.run_preprocessing()
+    benchmark_test.run_benchmarking()

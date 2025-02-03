@@ -113,10 +113,14 @@ if __name__ == "__main__":
     y = sfgd.iloc[:,-1]
     
     transformer = OverSampling()
-    # X = pd.DataFrame(data={'col1':[0,1,6, 2,1, 5, 900, np.nan], 'col2':['A', 'B', 'A','C','D', 'B', 'A',np.nan]})
-    # print(X)
-    if hasattr(transformer, 'is_sampler'):
-        X, y = transformer.fit_resample(X,y)
-    else:
-        X = transformer.fit_transform(X)
-    # print(X)
+    X = pd.DataFrame(data={'col1':[0,1,6, 2,1, 5, 900, np.nan], 'col2':['A', 'B', 'A','C','D', 'B', 'A',np.nan]})
+    print(X)
+
+    combination = (MeanImputer,OrdinalEncoder, StandardScaling, PCA_New)
+    pipeline = [pipeline_class() for pipeline_class in combination]
+    print(combination)
+    print(pipeline)
+    from sklearn.pipeline import make_pipeline
+    a = make_pipeline(*pipeline)
+    X_1 = a.fit_transform(X)
+    print(X_1)
